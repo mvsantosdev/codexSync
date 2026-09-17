@@ -59,6 +59,28 @@ appear. That is why `source_dir` exists.
 
 ## Procedure
 
+On Linux/macOS, the guarded preparation can be run with
+`scripts/experiments/session_layout_experiment.sh`. It performs the cold
+preflight, takes the Guardian snapshot, creates a full backup outside `.codex`,
+and copies one explicitly named branch. It never opens Codex and never restores
+or replaces `.codex`; those remain deliberate user actions.
+
+```bash
+bash scripts/experiments/session_layout_experiment.sh prepare \
+  --config config.toml \
+  --source /path/to/cloud/sessions/2026/03/12/rollout-example.jsonl \
+  --relative-path sessions/2026/03/12/rollout-example.jsonl \
+  --backup-dir /path/to/experiment-backups
+```
+
+After observing the result in Codex, close it and confirm the backup is ready:
+
+```bash
+bash scripts/experiments/session_layout_experiment.sh restore \
+  --config config.toml \
+  --backup /path/to/experiment-backups/codex-state-before-layout-experiment-<timestamp>
+```
+
 1. Close Codex completely, including the background sandbox process.
 
 2. Snapshot and back up:
