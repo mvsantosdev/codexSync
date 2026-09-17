@@ -97,7 +97,8 @@ class ProcessDetectorTests(unittest.TestCase):
         detector = CodexProcessDetector(["codex"])
         denied = Path("/proc/999999")
         with patch("codexsync.process_detector.Path.iterdir", return_value=[denied]), \
-             patch.object(Path, "stat", side_effect=PermissionError("denied")):
+             patch.object(Path, "stat", side_effect=PermissionError("denied")), \
+             patch("codexsync.process_detector.os.geteuid", return_value=0, create=True):
             with self.assertRaisesRegex(RuntimeError, "cannot inspect process"):
                 detector._list_linux_all()
 

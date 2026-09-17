@@ -76,10 +76,10 @@ class PortableSnapshotTests(unittest.TestCase):
         config.write_text(
             "\n".join((
                 "[identity]", 'machine_id = "test-machine"',
-                "[paths]", f'local_state_dir = "{self.source}"',
-                f'cloud_root_dir = "{self.root / "cloud"}"',
-                f'backup_dir = "{self.root / "backups"}"',
-                f'temp_dir = "{self.root / "temp"}"',
+                "[paths]", f'local_state_dir = "{self.source.as_posix()}"',
+                f'cloud_root_dir = "{(self.root / "cloud").as_posix()}"',
+                f'backup_dir = "{(self.root / "backups").as_posix()}"',
+                f'temp_dir = "{(self.root / "temp").as_posix()}"',
             )), encoding="utf-8",
         )
         with self.assertRaisesRegex(Exception, "already exists"):
@@ -90,10 +90,10 @@ class PortableSnapshotTests(unittest.TestCase):
         config.write_text(
             "\n".join((
                 "[identity]", 'machine_id = "test-machine"',
-                "[paths]", f'local_state_dir = "{self.source}"',
-                f'cloud_root_dir = "{self.root / "cloud"}"',
-                f'backup_dir = "{self.root / "backups"}"',
-                f'temp_dir = "{self.root / "temp"}"',
+                "[paths]", f'local_state_dir = "{self.source.as_posix()}"',
+                f'cloud_root_dir = "{(self.root / "cloud").as_posix()}"',
+                f'backup_dir = "{(self.root / "backups").as_posix()}"',
+                f'temp_dir = "{(self.root / "temp").as_posix()}"',
             )), encoding="utf-8",
         )
         with patch("codexsync.runtime.CodexProcessDetector") as detector:
