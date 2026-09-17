@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .app import (
     build_context,
+    create_portable_snapshot,
     apply_repair_projects,
     apply_session_transfer,
     audit_session_index,
@@ -312,6 +313,13 @@ def build_parser() -> argparse.ArgumentParser:
     restore_mode.add_argument("--dry-run", action="store_true", help="Force dry-run mode")
     restore_mode.add_argument("--apply", action="store_true", help="Apply restore (overrides dry-run)")
 
+    portable_snapshot = sub.add_parser(
+        "portable-snapshot", help="Export a target-bound, verified cold snapshot; never imports it"
+    )
+    portable_snapshot.add_argument("--output", required=True, help="New directory for the portable snapshot")
+    portable_snapshot.add_argument("--target-machine", required=True, help="Normalized machine_id authorized for a future import")
+    portable_snapshot.add_argument("--include-guardian", action="store_true", help="Include the latest verified Guardian global-state snapshot")
+
     guardian = sub.add_parser("guardian", help="Maintain immutable snapshots of the global Codex JSON state")
     guardian_sub = guardian.add_subparsers(dest="guardian_command", required=True)
     guardian_sub.add_parser("watch", help="Continuously observe .codex-global-state.json")
@@ -451,7 +459,7 @@ def main(argv: list[str] | None = None) -> int:
         # Logging is configured with defaults first, then with file settings from config when context is built.
         configure_logging(LoggingConfig(level="INFO", file=None), verbose=args.verbose)
         cfg_for_verbose = None
-        if args.command in {"plan", "sync", "restore"}:
+        if args.command in {"plan", "sync", "restore", "portable-snapshot"}:
             try:
                 cfg_for_verbose = load_config(config_path)
                 configure_logging(cfg_for_verbose.logging, verbose=args.verbose)
@@ -748,6 +756,17 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"{mode} finished. snapshot={result.snapshot_name} "
                 f"target={result.target} files={result.restored_files}"
+            )
+            return int(ExitCode.OK)
+
+        if args.command == "portable-snapshot":
+            snapshot = create_portable_snapshot(
+                config_path, output=Path(args.output), target_machine_id=args.target_machine,
+                include_guardian=args.include_guardian,
+            )
+            print(
+                f"Portable snapshot created. files={len(snapshot.entries)} "
+                f"target_machine={snapshot.target_machine_id} output={Path(args.output).expanduser().resolve()}"
             )
             return int(ExitCode.OK)
 
