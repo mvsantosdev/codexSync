@@ -27,7 +27,9 @@ from .mutation_journal import JournalState, JournalStore, MutationJournal
 from .models import AppConfig, CopyAction, FileMeta, SyncPlan
 from .operation_lock import OperationLock
 from .path_mapping import mapping_digest
+from .portable_snapshot import PortableSnapshot, build_portable_snapshot, validate_portable_snapshot
 from .guardian_runner import GuardianRunner
+from .guardian_pointer import resolve_or_restore_latest_good
 from .guardian_store import GuardianStore
 from .chat_directory import ChatDirectory, ChatEntry, ChatKind, build_chat_directory
 from .chat_move import ChatMovePlan, apply_chat_moves_to_state, build_chat_move_plan
@@ -112,6 +114,7 @@ __all__ = [
     "record_branch_resolution",
     "restore_from_backup",
     "commit_global_state",
+    "create_portable_snapshot",
     "move_chats",
     "save_transfer_plan",
     "scan_chats",
@@ -195,6 +198,49 @@ def build_guardian_runner(config_path: Path) -> GuardianRunner:
         staging_retention_hours=cfg.guardian.staging_retention_hours,
     )
     return GuardianRunner(source, store, cfg.guardian)
+
+
+def create_portable_snapshot(
+    config_path: Path, *, output: Path, target_machine_id: str, include_guardian: bool = False,
+) -> PortableSnapshot:
+    """Export cold, portable state into a new atomically published directory.
+
+    Imports are intentionally not provided: writing a transferred runtime
+    branch remains blocked pending the controlled layout experiment.
+    """
+    cfg = load_config(config_path)
+    source = detect_local_state_dir(cfg.paths.local_state_dir)
+    requested_output = output.expanduser()
+    if requested_output.exists() or requested_output.is_symlink():
+        raise ConfigError(f"Portable snapshot output already exists: {requested_output}")
+    output = requested_output.resolve()
+    if output.parent.exists() and not output.parent.is_dir():
+        raise ConfigError(f"Portable snapshot parent is not a directory: {output.parent}")
+    _make_safety_gate(cfg).require(OperationKind.PORTABLE_SNAPSHOT)
+    guardian_snapshot = None
+    if include_guardian:
+        try:
+            guardian_snapshot = resolve_or_restore_latest_good(
+                cfg.guardian.root_dir, require_guardian_identity(cfg),
+            )
+        except ValueError as exc:
+            raise ConfigError("A Guardian snapshot requires identity.machine_id") from exc
+        if guardian_snapshot is None:
+            raise FailSafeError("No verified Guardian snapshot is available to include")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    staging = output.parent / f".{output.name}.codexsync-staging-{uuid.uuid4().hex}"
+    try:
+        snapshot = build_portable_snapshot(
+            source, staging, target_machine_id=target_machine_id, guardian_snapshot=guardian_snapshot,
+        )
+        validate_portable_snapshot(staging)
+        # The output was proven absent before copying.  os.replace is atomic
+        # within this parent and never touches the source state directory.
+        os.replace(staging, output)
+        return validate_portable_snapshot(output)
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
 
 
 def scan_repair_projects(

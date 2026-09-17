@@ -27,6 +27,7 @@ class OperationKind(str, Enum):
     SESSION_APPLY = "session_apply"
     RECOVER_RESUME = "recover_resume"
     RECOVER_ROLLBACK = "recover_rollback"
+    PORTABLE_SNAPSHOT = "portable_snapshot"
 
 
 class ProcessState(str, Enum):
@@ -65,6 +66,10 @@ OPERATION_PROFILES: dict[OperationKind, OperationProfile] = {
     OperationKind.SESSION_APPLY: OperationProfile(OperationKind.SESSION_APPLY, True, True, False),
     OperationKind.RECOVER_RESUME: OperationProfile(OperationKind.RECOVER_RESUME, True, True, False),
     OperationKind.RECOVER_ROLLBACK: OperationProfile(OperationKind.RECOVER_ROLLBACK, True, True, False),
+    # Export writes only an explicitly chosen directory outside `.codex`, but
+    # its source must still be cold: a partially written SQLite set is not a
+    # portable handoff artifact.
+    OperationKind.PORTABLE_SNAPSHOT: OperationProfile(OperationKind.PORTABLE_SNAPSHOT, True, False, False),
 }
 
 

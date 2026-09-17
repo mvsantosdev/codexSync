@@ -144,6 +144,7 @@ closed; everything else reads only and may run at any time.
 | `plan` | no | Show what a sync would copy (marked `volatile` if Codex is open) |
 | `sync` | **yes** | Copy state both ways, backup-first |
 | `restore` | **yes** | Restore files from a verified backup snapshot |
+| `portable-snapshot --output <dir> --target-machine <id>` | **yes** | Export a verified, target-bound handoff artifact; import is intentionally unavailable |
 | `guardian watch` | no | Keep taking snapshots of the global state while Codex runs |
 | `guardian snapshot --once` | no | Take one snapshot now |
 | `guardian scheduler` | no | Render user-level scheduler templates |
@@ -308,6 +309,21 @@ Preview restore without writing:
 ```powershell
 python -m codexsync -c config.toml restore --dry-run
 ```
+
+Create a portable snapshot for a manual handoff (with Codex closed), bound to
+the configured identity of the receiving machine:
+
+```powershell
+python -m codexsync -c config.toml portable-snapshot --output D:\handoff\codex-state --target-machine laptop
+```
+
+The output is a new directory with a SHA-256 manifest and the machine identity
+that a future importer must match. It includes session branches, plugins/skills,
+and the complete SQLite set; it excludes credentials, IPC/locks, logs, and
+cache. Add `--include-guardian` only when you explicitly want the latest
+verified global project/chat-state snapshot in the artifact. It is an
+export-only artifact: importing it into `.codex` stays deliberately blocked
+until the runtime layout has been proven in a controlled experiment.
 
 ## Session branches across machines
 
