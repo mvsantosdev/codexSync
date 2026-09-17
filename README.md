@@ -5,8 +5,10 @@ Open-source utility for syncing local Codex state between personal machines usin
 Russian version: [README.ru.md](./README.ru.md).
 
 > [!IMPORTANT]
-> Current real-world validation is Windows-to-Windows only.
-> macOS support exists in code/CI, but end-to-end handoff on real macOS machines is not yet validated.
+> Current real-world validation is Windows-to-Windows only. Linux has a
+> fail-closed `/proc` process detector and CI coverage, but end-to-end session
+> import remains deliberately blocked until a controlled runtime-layout
+> experiment proves the SQLite-backed binding contract.
 
 ## Why
 
@@ -54,7 +56,8 @@ Developers may want to continue working with Codex on another machine without lo
 * **No integration with Codex internals.** codexSync never starts or stops
   Codex, reads no tokens and writes no SQLite.
 * **Offline-friendly, zero runtime dependencies** in the core and the CLI.
-* Windows-first; macOS supported in code and CI.
+* Windows-first; macOS and Linux are supported in code and CI. Linux mutation
+  safety is based on a `/proc` process and open-state-file check.
 
 ## How it works
 
@@ -119,8 +122,8 @@ Developers may want to continue working with Codex on another machine without lo
 
 - Runtime support is currently Windows-first.
 - macOS support is allowed in current project scope (Apple Silicon target).
-- Linux runtime support is intentionally out of MVP scope for now.
-- CI runs `pytest` on `windows-latest` and `macos-latest`, for Python 3.11,
+- Linux runtime support uses a native, fail-closed `/proc` adapter.
+- CI runs `pytest` on `windows-latest`, `macos-latest`, and `ubuntu-latest`, for Python 3.11,
   3.12 and 3.13. There is no linter or type-checker; two tests carry that
   weight instead — a static guard against names used but never imported, and a
   guard that fails the moment a write targets the Codex state directory.
@@ -558,7 +561,7 @@ Process safety behavior:
 
 - codexSync never starts or terminates Codex. Legacy termination CLI flags are rejected with exit code `4`, and `allow_terminate_if_running=true` is rejected for mutation commands.
 - `sync`, `restore`, `repair-projects apply`, and recovery mutations require a continuously stopped two-second process window plus direct checks before and during commit.
-- `RUNNING` and `UNKNOWN` both block mutation; macOS/Linux mutation remains blocked until a tested adapter is available.
+- `RUNNING` and `UNKNOWN` both block writes. macOS remains blocked until a tested adapter is available; Linux uses the native fail-closed `/proc` adapter.
 - If a destination is momentarily held open by another process (cloud client, search indexer, antivirus), the atomic replace is retried with bounded backoff instead of failing the run. Process safety is re-checked before each attempt, and errors that are not a transient lock are not retried. See [D-011](./docs/DECISIONS.md).
 - Background process tracking is configured by OS in `process_detection.background_process_names`:
   - `windows = ["codex-windows-sandbox"]`

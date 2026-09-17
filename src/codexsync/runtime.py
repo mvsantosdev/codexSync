@@ -77,7 +77,7 @@ def _bootstrap_cloud_targets(cfg: AppConfig) -> None:
             _ensure_dir(candidate, f"targets.include_roots dir {rel}")
 
 def _make_safety_gate(cfg: AppConfig) -> SafetyGate:
-    detector = CodexProcessDetector(cfg.process_detection.process_names)
+    detector = CodexProcessDetector(cfg.process_detection.process_names, state_dir=cfg.paths.local_state_dir)
 
     def sample() -> ProcessState:
         capability = detector.capability()
@@ -124,7 +124,7 @@ def collect_codex_processes(cfg: AppConfig) -> list[ProcessInfo]:
     return snapshot.subprocesses
 
 def collect_process_snapshot(cfg: AppConfig, detector: CodexProcessDetector | None = None) -> ProcessSnapshot:
-    detector = detector or CodexProcessDetector(cfg.process_detection.process_names)
+    detector = detector or CodexProcessDetector(cfg.process_detection.process_names, state_dir=cfg.paths.local_state_dir)
     main, subprocesses = detector.get_subprocess_tree(cfg.process_detection.process_names)
     markers = _current_os_background_processes(cfg)
     find_processes = getattr(detector, "find_processes", None)
