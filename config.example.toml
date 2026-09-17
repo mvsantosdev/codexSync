@@ -123,7 +123,7 @@ fail_on_unknown = true
 process_names = ["codex.exe", "codex"]
 # Small grace delay after process close before sync starts
 grace_period_seconds = 2
-# Allow automatic Codex process termination before sync (Windows only)
+# Automatic Codex process termination is unsupported; close it manually.
 allow_terminate_if_running = false
 # Require manual GUI confirmation before termination by default
 manual_terminate_confirmation = true

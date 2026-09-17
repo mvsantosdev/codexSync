@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import patch
 import unittest
 
-from codexsync.process_detector import CodexProcessDetector
+from codexsync.process_detector import CodexProcessDetector, ProcessInfo
 
 
 class _Result:
@@ -53,6 +54,52 @@ class ProcessDetectorTests(unittest.TestCase):
         detector = CodexProcessDetector(["codex.exe"])
         running = detector.list_running()
         self.assertEqual(running, [])
+
+    @patch("codexsync.process_detector.sys.platform", "linux")
+    def test_linux_capability_and_executable_match(self) -> None:
+        detector = CodexProcessDetector(["codex"])
+        with patch.object(
+            detector,
+            "_list_linux_all",
+            return_value=[ProcessInfo(100, "node", "", 1, "codex")],
+        ):
+            self.assertTrue(detector.capability().supported)
+            self.assertEqual([item.pid for item in detector.list_running()], [100])
+
+    @patch("codexsync.process_detector.sys.platform", "linux")
+    def test_linux_no_codex_match_is_stopped_candidate(self) -> None:
+        detector = CodexProcessDetector(["codex"])
+        with patch.object(detector, "_list_linux_all", return_value=[ProcessInfo(100, "python", "python", 1)]):
+            self.assertEqual(detector.list_running(), [])
+
+    @patch("codexsync.process_detector.sys.platform", "linux")
+    def test_linux_open_state_file_marker_counts_as_running(self) -> None:
+        detector = CodexProcessDetector(["codex"])
+        with patch.object(
+            detector, "_list_linux_all", return_value=[ProcessInfo(-100, "codex-state-open", "", 1)]
+        ):
+            self.assertEqual([item.pid for item in detector.list_running()], [-100])
+
+    @patch("codexsync.process_detector.sys.platform", "linux")
+    def test_linux_process_tree_includes_vscode_child(self) -> None:
+        detector = CodexProcessDetector(["codex"])
+        processes = [
+            ProcessInfo(100, "codex", "/usr/local/bin/codex", 1),
+            ProcessInfo(101, "node", "/usr/bin/node\0extension.js", 100),
+        ]
+        with patch.object(detector, "_list_linux_all", return_value=processes):
+            roots, children = detector.get_subprocess_tree(["codex"])
+        self.assertEqual([item.pid for item in roots], [100])
+        self.assertEqual([item.pid for item in children], [101])
+
+    @patch("codexsync.process_detector.sys.platform", "linux")
+    def test_linux_permission_denial_fails_closed(self) -> None:
+        detector = CodexProcessDetector(["codex"])
+        denied = Path("/proc/999999")
+        with patch("codexsync.process_detector.Path.iterdir", return_value=[denied]), \
+             patch.object(Path, "stat", side_effect=PermissionError("denied")):
+            with self.assertRaisesRegex(RuntimeError, "cannot inspect process"):
+                detector._list_linux_all()
 
 
 if __name__ == "__main__":
